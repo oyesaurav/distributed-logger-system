@@ -1,5 +1,5 @@
-import Head from "next/head"
-import { useState } from "react"
+import Head from 'next/head';
+import { useState } from 'react';
 import {
   MantineProvider,
   Container,
@@ -12,78 +12,47 @@ import {
   Stack,
   Button,
   Group,
-  FileButton,
-  SegmentedControl,
-  Text,
   createStyles,
-  Table,
-  ColorSchemeProvider,
   Header,
   ActionIcon,
-  Alert,
-} from "@mantine/core"
-import { IconClick, IconMoonStars, IconSun } from "@tabler/icons-react"
-
-const classifiers = [
-  {
-    name: "Cls_1",
-    description: "Using Multi layer perceptron to predict the medical specialty of the clinical notes",
-    avail: "Will be added soon",
-  },
-  {
-    name: "Cls_2",
-    description: "Fine tuned DistilBert model on our dataset to predict the medical specialty of the clinical notes",
-    avail: "Available",
-  },
-  {
-    name: "Cls_3",
-    description: "Bert feature extraction -> [CLS] hidden state -> 9 hidden linear layers",
-    avail: "Will be added soon",
-  },
-]
+  Input,
+  Select,
+  MenuItem,
+} from '@mantine/core';
+import { IconClick, IconMoonStars, IconSun } from '@tabler/icons-react';
 
 export default function Home() {
-  const [color, setColor] = useState("dark")
-  const theme = useMantineTheme()
-  const classes = useStyles()
-  const PRIMARY_COL_HEIGHT = rem(400)
-  const SECONDARY_COL_HEIGHT = `calc(${PRIMARY_COL_HEIGHT} / 2 - ${theme.spacing.md} / 2)`
-  const CUSTOM_COL_HEIGHT = `calc(${PRIMARY_COL_HEIGHT} / 10 - ${theme.spacing.md} / 6)`
-  const [file, setFile] = useState(null)
-  const [text, setText] = useState("")
-  const [model, setModel] = useState("Cls_2")
-  const [rows, setRows] = useState()
+  const [color, setColor] = useState('dark');
+  const theme = useMantineTheme();
+  const classes = useStyles();
+  const PRIMARY_COL_HEIGHT = rem(400);
+  const [text, setText] = useState('');
+  const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState('user1');
+  const [environment, setEnvironment] = useState('dev');
+  const [model, setModel] = useState('gpt-3.5-turbo-0125');
 
-  const ths = (
-    <tr>
-      <th>Medical_specialty</th>
-      <th>Score</th>
-      {/* <th>Some</th>
-      <th>Others</th> */}
-    </tr>
-  )
-
-  async function Cls_2(data) {
-    try {
-      const response = await fetch("https://api-inference.huggingface.co/models/oyesaurav/dwellbert", {
-        headers: { Authorization: process.env.NEXT_PUBLIC_HUGGING_FACE },
-        method: "POST",
-        body: JSON.stringify(data),
-      })
-      const result = await response.json()
-      setRows(
-        result[0].slice(0, 5).map((element) => (
-          <tr key={element.label}>
-            <td>{element.label}</td>
-            <td>{element.score}</td>
-          </tr>
-        ))
-      )
-    }
-    catch (error) {
-      Alert({ title: "Error", message: "Model hasn't loaded, please try again", color: "red" })
-    }
-  }
+  const promptResponse = async (data) => {
+    console.log(data, user, environment, model);
+    setLoading(true);
+    const response = await fetch(process.env.NEXT_PUBLIC_API_URL + 'prompt', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        prompt: data.prompt,
+        user: user,
+        env: environment,
+        model: model,
+      }),
+    });
+    const json = await response.json();
+    console.log(json);
+    setOutput(json.output);
+    setLoading(false);
+  };
 
   return (
     <div>
@@ -92,33 +61,50 @@ export default function Home() {
         <meta name="description" content="Prompt response logger" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      <MantineProvider withGlobalStyles withNormalizeCSS theme={{ colorScheme: color }}>
+      <MantineProvider
+        withGlobalStyles
+        withNormalizeCSS
+        theme={{ colorScheme: color }}
+      >
         <Header height={56} mb={120}>
           <Container className={classes.inner}>
             {/* <MantineLogo size={28} /> */}
             <Group>
               <h2>Prompt response logger</h2>
               <ActionIcon
-                onClick={() => setColor(color === "dark" ? "light" : "dark")}
+                onClick={() => setColor(color === 'dark' ? 'light' : 'dark')}
                 size="lg"
                 sx={(theme) => ({
-                  backgroundColor: theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.colors.gray[0],
-                  color: theme.colorScheme === "dark" ? theme.colors.yellow[4] : theme.colors.blue[6],
-                  marginLeft: "auto",
+                  backgroundColor:
+                    theme.colorScheme === 'dark'
+                      ? theme.colors.dark[6]
+                      : theme.colors.gray[0],
+                  color:
+                    theme.colorScheme === 'dark'
+                      ? theme.colors.yellow[4]
+                      : theme.colors.blue[6],
+                  marginLeft: 'auto',
                 })}
               >
-                {color === "dark" ? <IconSun size="1.2rem" /> : <IconMoonStars size="1.2rem" />}
+                {color === 'dark' ? (
+                  <IconSun size="1.2rem" />
+                ) : (
+                  <IconMoonStars size="1.2rem" />
+                )}
               </ActionIcon>
             </Group>
           </Container>
         </Header>
         <Container my="md">
-          <SimpleGrid cols={2} spacing="md" breakpoints={[{ maxWidth: "sm", cols: 1 }]}>
-            {/* <Skeleton height={PRIMARY_COL_HEIGHT} radius="md" animate={false} /> */}
+          <SimpleGrid
+            cols={2}
+            spacing="md"
+            breakpoints={[{ maxWidth: 'sm', cols: 1 }]}
+          >
             <Stack>
               <Textarea
                 placeholder="Type your prompt here"
-                label="prompts"
+                // label="prompts"
                 radius="md"
                 height={PRIMARY_COL_HEIGHT}
                 autosize
@@ -126,84 +112,97 @@ export default function Home() {
                 maxRows={18}
                 onChange={(event) => setText(event.currentTarget.value)}
               />
+              {/* User Input */}
+              <Input
+                placeholder="User"
+                value={user}
+                onChange={(event) => setUser(event.currentTarget.value)}
+              />
+              <Select
+                data={[
+                  { value: 'dev', label: 'Dev' },
+                  { value: 'prod', label: 'Prod' },
+                ]}
+                value={environment}
+                onChange={(value, option) => setEnvironment(option)}
+              />
+              <Select
+                data={[
+                  { value: 'gpt-3.5-turbo-0125', label: 'GPT-3.5 Turbo 0125' },
+                  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+                  {
+                    value: 'gpt-3.5-turbo-instruct',
+                    label: 'GPT-3.5 Turbo Instruct',
+                  },
+                  {
+                    value: 'gpt-3.5-turbo-16k-0613',
+                    label: 'GPT-3.5 Turbo 16k 0613',
+                  },
+                ]}
+                value={model}
+                onChange={(value, option) => setModel(option)}
+              />
+
               <Grid>
                 <Grid.Col span={4}>
                   <Button
                     leftIcon={<IconClick size="1rem" />}
-                    loading={false}
+                    loading={loading}
                     fullWidth
-                    onClick={() => Cls_2({ inputs: text })}
+                    onClick={() => promptResponse({ prompt: text })}
                   >
                     Submit
                   </Button>
                 </Grid.Col>
               </Grid>
+              {/* Output Area */}
             </Stack>
-            <Grid gutter="md">
-              <Grid.Col>
-                <SegmentedControl
-                  style={{
-                    marginTop: theme.spacing.md,
-                  }}
-                  fullWidth
-                  radius="xl"
-                  size="md"
-                  value={model}
-                  onChange={setModel}
-                  data={["Cls_1", "Cls_2", "Cls_3", "Cls_4", "Cls_5", "Cls_6"]}
-                  classNames={classes}
-                />
-                <Text fw={500}>{
-                  classifiers[model.split("_")[1]-1].description                
-                }</Text>
-              </Grid.Col>
-              <Grid.Col>
-                {/* <Skeleton height={SECONDARY_COL_HEIGHT} radius="md" animate={false} /> */}
-                <Table highlightOnHover withBorder fullWidth>
-                  <thead>{ths}</thead>
-                  <tbody>{
-                  classifiers[model.split("_")[1]-1].avail === "Available" ? rows : <tr><td>The model will be added</td></tr>
-                  }</tbody>
-                </Table>
-              </Grid.Col>
-            </Grid>
+            <Textarea
+              value={output}
+              placeholder="Output will be shown here"
+              readOnly
+              height={PRIMARY_COL_HEIGHT}
+              minRows={15}
+              overflowY="scroll"
+            />
           </SimpleGrid>
         </Container>
       </MantineProvider>
     </div>
-  )
+  );
 }
 
 const useStyles = createStyles((theme) => ({
   inner: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     height: rem(56),
 
-    [theme.fn.smallerThan("sm")]: {
-      justifyContent: "flex-start",
+    [theme.fn.smallerThan('sm')]: {
+      justifyContent: 'flex-start',
     },
   },
   root: {
-    backgroundColor: theme.colorScheme === "dark" ? theme.colors.dark[6] : theme.white,
+    backgroundColor:
+      theme.colorScheme === 'dark' ? theme.colors.dark[6] : theme.white,
     boxShadow: theme.shadows.md,
-    border: `${rem(1)} solid ${theme.colorScheme === "dark" ? theme.colors.dark[4] : theme.colors.gray[1]}`,
+    border: `${rem(1)} solid ${theme.colorScheme === 'dark' ? theme.colors.dark[4] : theme.colors.gray[1]}`,
   },
 
   indicator: {
-    backgroundImage: theme.fn.gradient({ from: "pink", to: "orange" }),
+    backgroundImage: theme.fn.gradient({ from: 'pink', to: 'orange' }),
   },
 
   control: {
-    border: "0 !important",
+    border: '0 !important',
   },
 
   label: {
-    "&, &:hover": {
-      "&[data-active]": {
+    '&, &:hover': {
+      '&[data-active]': {
         color: theme.white,
       },
     },
   },
-}))
+}));

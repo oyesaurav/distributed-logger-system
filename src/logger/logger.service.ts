@@ -4,7 +4,7 @@ import { createClient } from '@clickhouse/client';
 import OpenAI from 'openai';
 import * as tiktoken from 'js-tiktoken';
 import { from } from 'rxjs';
-import { FilterDto } from './dto';
+import { FilterDto, promptDto } from './dto';
 
 const encoding = tiktoken.getEncoding('cl100k_base');
 
@@ -57,7 +57,7 @@ export class LoggerService {
     return numTokens;
   };
 
-  async promptResponse(prompt: string): Promise<string> {
+  async promptResponse(dto: promptDto): Promise<{output: string}> {
     let content = '';
     const tokenUsage = {
       prompt_tokens: 0,
@@ -66,13 +66,13 @@ export class LoggerService {
     };
     let startTime = new Date().getTime();
     const stream = await this.openai.chat.completions.create({
-      model: 'gpt-3.5-turbo-16k-0613',
-      messages: [{ role: 'user', content: prompt }],
+      model: dto.model,
+      messages: [{ role: 'user', content: dto.prompt }],
       stream: true,
     });
 
     tokenUsage.prompt_tokens = this.numTokensFromPrompt([
-      { role: 'user', content: prompt },
+      { role: 'user', content: dto.prompt },
     ]);
 
     for await (const chunk of stream) {
@@ -85,7 +85,7 @@ export class LoggerService {
           values: [
             {
               id: chunk.id,
-              prompt: prompt,
+              prompt: dto.prompt,
               success: true,
               created_at: new Date(),
               response: content,
@@ -93,8 +93,8 @@ export class LoggerService {
               prompt_tokens: tokenUsage.prompt_tokens,
               response_tokens: tokenUsage.completion_tokens,
               latency: latency,
-              user: 'user',
-              env: 'dev',
+              user: dto.user,
+              env: dto.env,
             },
           ],
           format: 'JSONEachRow',
@@ -102,8 +102,8 @@ export class LoggerService {
       }
       content += chunk.choices[0].delta.content;
     }
-    console.log(content);
-    return prompt;
+    // console.log(content);
+    return {output: content};
   }
 
   async getAggregateMetrics(): Promise<any> {

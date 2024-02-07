@@ -8,8 +8,8 @@ export class LoggerController {
   constructor(private loggerService: LoggerService) {}
 
   @Post('prompt')
-  async prompt(@Body() dto: promptDto): Promise<string> {
-    return this.loggerService.promptResponse(dto.prompt);
+  async prompt(@Body() dto: promptDto): Promise<{output: string}> {
+    return this.loggerService.promptResponse(dto);
   }
 
   @Get('stats')
