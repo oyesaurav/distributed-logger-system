@@ -3,12 +3,21 @@ import { ConfigService } from '@nestjs/config';
 import { createClient } from '@clickhouse/client';
 import OpenAI from 'openai';
 import * as tiktoken from 'js-tiktoken';
+import { from } from 'rxjs';
+import { FilterDto } from './dto';
 
 const encoding = tiktoken.getEncoding('cl100k_base');
 
 @Injectable()
 export class LoggerService {
-  constructor(private configService: ConfigService) {}
+  constructor(private configService: ConfigService) {
+    this.client.command({
+      query: `CREATE TABLE IF NOT EXISTS prompts 
+              (id String, prompt String, success Boolean, created_at DateTime64(3, 'UTC'), response String, model String, prompt_tokens UInt64, response_tokens UInt64, latency UInt64, user String, env String)
+              ENGINE = MergeTree()
+              ORDER BY (id)`,
+    });
+  }
   private openai = new OpenAI({
     apiKey: this.configService.get<string>('openai.apiKey'),
   });
@@ -17,6 +26,16 @@ export class LoggerService {
     username: this.configService.get<string>('clickhouse.username'),
     password: this.configService.get<string>('clickhouse.password'),
   });
+
+  private buildFilterQuery(filters: any): string {
+    const conditions = [];
+    for (const key in filters) {
+      if (filters.hasOwnProperty(key)) {
+        conditions.push(`${key} = '${filters[key]}'`);
+      }
+    }
+    return conditions.join(' AND ');
+  }
 
   public numTokensFromPrompt = (
     messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[],
@@ -39,13 +58,6 @@ export class LoggerService {
   };
 
   async promptResponse(prompt: string): Promise<string> {
-    await this.client.command({
-      query: `CREATE OR REPLACE TABLE prompts 
-                    (id String, prompt String, success Boolean, created_at DateTime64(3, 'UTC'), response String, model String, prompt_tokens UInt64, response_tokens UInt64, latency UInt64, user String, env String)
-                    ENGINE = MergeTree()
-                    ORDER BY (id)`,
-    });
-
     let content = '';
     const tokenUsage = {
       prompt_tokens: 0,
@@ -54,7 +66,7 @@ export class LoggerService {
     };
     let startTime = new Date().getTime();
     const stream = await this.openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
+      model: 'gpt-3.5-turbo-16k-0613',
       messages: [{ role: 'user', content: prompt }],
       stream: true,
     });
@@ -92,5 +104,34 @@ export class LoggerService {
     }
     console.log(content);
     return prompt;
+  }
+
+  async getAggregateMetrics(): Promise<any> {
+    const query = `SELECT
+      toDate(created_at) AS date,
+      count(*) AS num_requests,
+      avg(latency) AS avg_latency,
+      quantile(0.95)(latency) AS p95_latency,
+      sum(if(success = 0, 1, 0)) AS total_failures,
+      sum(prompt_tokens) / sum(latency) AS input_tokens_per_second,
+      sum(response_tokens) / sum(latency) AS output_tokens_per_second
+      FROM prompts
+      GROUP BY date`;
+    const response = await this.client.query({
+      query,
+      format: 'JSONEachRow',
+    });
+    const data = await response.json()
+    return data;
+  }
+
+  async getFilteredRequests(filters: FilterDto): Promise<any> {
+    const query = `SELECT * FROM prompts WHERE ${this.buildFilterQuery(filters)}`;
+    const response = await this.client.query({
+      query,
+      format: 'JSONEachRow',
+    });
+    const data = await response.json()
+    return data;
   }
 }
