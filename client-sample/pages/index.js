@@ -34,7 +34,7 @@ export default function Home() {
   const [model, setModel] = useState('gpt-3.5-turbo-0125');
 
   const promptResponse = async (data) => {
-    console.log(data, user, environment, model);
+    console.log({data, user, environment, model});
     setLoading(true);
     const response = await fetch(process.env.NEXT_PUBLIC_API_URL + 'prompt', {
       method: 'POST',
@@ -49,7 +49,7 @@ export default function Home() {
       }),
     });
     const json = await response.json();
-    console.log(json);
+    // console.log(json);
     setOutput(json.output);
     setLoading(false);
   };
@@ -70,7 +70,7 @@ export default function Home() {
           <Container className={classes.inner}>
             {/* <MantineLogo size={28} /> */}
             <Group>
-              <h2>Prompt response logger</h2>
+              <h2 style={{color: '#999' }}>Prompt response logger</h2>
               <ActionIcon
                 onClick={() => setColor(color === 'dark' ? 'light' : 'dark')}
                 size="lg"
@@ -124,7 +124,7 @@ export default function Home() {
                   { value: 'prod', label: 'Prod' },
                 ]}
                 value={environment}
-                onChange={(value, option) => setEnvironment(option)}
+                onChange={(value, option) => setEnvironment(value)}
               />
               <Select
                 data={[
@@ -140,7 +140,7 @@ export default function Home() {
                   },
                 ]}
                 value={model}
-                onChange={(value, option) => setModel(option)}
+                onChange={(value, option) => setModel(value)}
               />
 
               <Grid>
@@ -157,14 +157,31 @@ export default function Home() {
               </Grid>
               {/* Output Area */}
             </Stack>
-            <Textarea
-              value={output}
-              placeholder="Output will be shown here"
-              readOnly
-              height={PRIMARY_COL_HEIGHT}
-              minRows={15}
-              overflowY="scroll"
-            />
+            <Stack>
+              <Textarea
+                value={output}
+                placeholder="Output will be shown here"
+                readOnly
+                height={PRIMARY_COL_HEIGHT}
+                minRows={15}
+                overflowY="scroll"
+              />
+              <div>
+                <a
+                  href="https://oyesaurav.grafana.net/public-dashboards/3e8c8be7ad1043b58f572410e6c797a6"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  View the dashboard
+                </a>
+                <p style={{ fontSize: '0.9rem', color: '#777' }}>
+                  Note: The grafana public dashboard doesn't support template variables,
+                  so some data may be missing depending on the variables (timespan and query).
+
+                  The server has dormancy, initial request may take a few seconds to respond.
+                </p>
+              </div>
+            </Stack>
           </SimpleGrid>
         </Container>
       </MantineProvider>
